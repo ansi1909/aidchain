@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, reactive, computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useIdentityStore } from '../stores/identity'
 import { useCatalogStore } from '../stores/catalog'
 import BaseCard from '../components/ui/BaseCard.vue'
@@ -11,13 +12,15 @@ import BaseTooltip from '../components/ui/BaseTooltip.vue'
 
 const identity = useIdentityStore()
 const catalog = useCatalogStore()
+const route = useRoute()
 
-const modo = ref('registro') // 'registro' o 'recuperar'
+const modo = ref(route.query.modo === 'recuperar' ? 'recuperar' : 'registro') // 'registro' o 'recuperar'
 
 const roles = [
   { value: 'despachador', label: 'Despachador', hint: 'Origina salidas de un centro de acopio (OUT_DISPATCH).' },
   { value: 'encargado_refugio', label: 'Encargado de refugio', hint: 'Confirma y firma la recepción de lotes en destino.' },
   { value: 'auditor', label: 'Auditor', hint: 'Perfil de lectura, auditoría y liberación de bloqueos.' },
+  { value: 'admin', label: 'Administrador', hint: 'Configuración del sistema: gestión de refugios, catálogos y umbrales.' },
 ]
 
 const form = reactive({
@@ -166,10 +169,6 @@ async function onReset() {
             <div class="flex justify-between border-b border-aid-gray-100 py-2">
               <dt class="text-aid-text-muted">Coordinador</dt>
               <dd class="font-medium text-aid-text">{{ identity.coordinator.nombre }}</dd>
-            </div>
-            <div class="flex justify-between border-b border-aid-gray-100 py-2">
-              <dt class="text-aid-text-muted">Documento</dt>
-              <dd class="font-medium text-aid-text">{{ identity.coordinator.documento }}</dd>
             </div>
             <div class="flex justify-between border-b border-aid-gray-100 py-2">
               <dt class="text-aid-text-muted">Roles</dt>

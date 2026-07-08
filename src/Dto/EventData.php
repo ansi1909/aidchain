@@ -21,12 +21,12 @@ final class EventData
 {
     public function __construct(
         public readonly EventType $tipo,
-        public readonly string $item,
-        public readonly string $cantidad,
-        public readonly string $unidad,
-        public readonly Shelter $shelter,
-        public readonly Organization $organization,
-        public readonly EventChannel $canalOrigen,
+        public readonly ?string $item = null,
+        public readonly ?string $cantidad = null,
+        public readonly ?string $unidad = null,
+        public readonly ?Shelter $shelter = null,
+        public readonly ?Organization $organization = null,
+        public readonly EventChannel $canalOrigen = EventChannel::WEB,
         /** Firma ECDSA P-256 (base64) generada por el origen sobre el payload canónico. */
         public readonly string $firmaOrigen,
         /**
@@ -43,6 +43,11 @@ final class EventData
          * nace CONSOLIDADO.
          */
         public readonly ?EventState $estado = null,
+        /**
+         * Datos de configuración (JSON) para eventos de tipo CONFIG_*.
+         * Contiene los datos específicos de la acción administrativa.
+         */
+        public readonly ?array $datosConfiguracion = null,
     ) {
     }
 
@@ -50,6 +55,7 @@ final class EventData
      * Estado efectivo del evento aplicando la regla por defecto según el tipo.
      * OUT_DISPATCH nace EN_TRANSITO (espera firma de destino).
      * OUT_BENEFICIARY nace CONSOLIDADO (es entrega local, no requiere recepción).
+     * Los eventos de configuración (CONFIG_*) nacen CONSOLIDADO.
      * El resto nace CONSOLIDADO.
      */
     public function resolveEstado(): EventState
@@ -58,8 +64,11 @@ final class EventData
             return $this->estado;
         }
 
-        return $this->tipo === EventType::OUT_DISPATCH
-            ? EventState::EN_TRANSITO
-            : EventState::CONSOLIDADO;
+        if ($this->tipo === EventType::OUT_DISPATCH) {
+            return EventState::EN_TRANSITO;
+        }
+
+        // Eventos de configuración y el resto nacen consolidados
+        return EventState::CONSOLIDADO;
     }
 }

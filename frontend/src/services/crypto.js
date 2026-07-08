@@ -151,13 +151,14 @@ function normalizeCantidad(v) {
  * @param {number}      e.coordinatorId
  * @param {string}      e.canalOrigen
  * @param {?string}     e.loteId
+ * @param {?object}     e.datosConfiguracion
  */
 export function buildCanonicalPayload(e) {
   // Orden alfabético ascendente de claves (equivalente a ksort en PHP).
   const ordered = {
     beneficiary_token: e.beneficiaryToken ?? null,
     canal_origen: e.canalOrigen,
-    cantidad: normalizeCantidad(e.cantidad),
+    cantidad: e.cantidad !== null ? normalizeCantidad(e.cantidad) : null,
     coordinator_id: e.coordinatorId,
     item: e.item,
     lote_id: e.loteId ?? null,
@@ -166,5 +167,11 @@ export function buildCanonicalPayload(e) {
     tipo: e.tipo,
     unidad: e.unidad,
   }
+
+  // Para eventos de configuración, incluir datosConfiguracion en el payload
+  if (e.tipo && e.tipo.startsWith('config_')) {
+    ordered.datos_configuracion = e.datosConfiguracion
+  }
+
   return JSON.stringify(ordered)
 }

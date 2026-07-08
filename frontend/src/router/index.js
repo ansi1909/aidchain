@@ -6,6 +6,8 @@ import DespachoView from '../views/DespachoView.vue'
 import RecepcionView from '../views/RecepcionView.vue'
 import NecesidadesView from '../views/NecesidadesView.vue'
 import InventarioView from '../views/InventarioView.vue'
+import EntregaView from '../views/EntregaView.vue'
+import RefugiosView from '../views/RefugiosView.vue'
 
 const routes = [
   {
@@ -42,6 +44,16 @@ const routes = [
     path: '/inventario',
     name: 'inventario',
     component: InventarioView,
+  },
+  {
+    path: '/entrega',
+    name: 'entrega',
+    component: EntregaView,
+  },
+  {
+    path: '/refugios',
+    name: 'refugios',
+    component: RefugiosView,
   },
   // Aquí se irán agregando las vistas de las siguientes fases:
   // /importar          -> importador de Excel/CSV para ONGs — Fase 6

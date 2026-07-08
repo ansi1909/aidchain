@@ -418,6 +418,41 @@ class LedgerController extends AbstractController
     }
 
     /**
+     * Obtiene el historial de eventos de un beneficiario específico (Fase 8).
+     * Útil para mostrar las entregas recibidas en la vista de entrega a beneficiarios.
+     */
+    #[Route('/beneficiary/{token}/events', name: 'api_ledger_beneficiary_events', methods: ['GET'])]
+    public function beneficiaryEvents(string $token): JsonResponse
+    {
+        $beneficiary = $this->beneficiaryRepository->findOneByToken($token);
+        if ($beneficiary === null) {
+            return $this->json(['error' => 'beneficiaryToken no encontrado'], Response::HTTP_NOT_FOUND);
+        }
+
+        $eventos = $this->eventRepository->findBy(
+            ['beneficiary' => $beneficiary],
+            ['createdAt' => 'DESC'],
+        );
+
+        return $this->json(array_map(
+            fn (InventoryEvent $e): array => [
+                'id' => $e->getId(),
+                'tipo' => $e->getTipo()->value,
+                'item' => $e->getItem(),
+                'cantidad' => $e->getCantidad(),
+                'unidad' => $e->getUnidad(),
+                'estado' => $e->getEstado()->value,
+                'createdAt' => $e->getCreatedAt()->format(\DateTimeInterface::ATOM),
+                'shelter' => [
+                    'id' => $e->getShelter()->getId(),
+                    'nombre' => $e->getShelter()->getNombre(),
+                ],
+            ],
+            $eventos,
+        ));
+    }
+
+    /**
      * Recorre la cadena completa y reporta si está íntegra o dónde se rompió.
      * Devuelve 200 si la cadena es válida y 409 (Conflict) si detecta rupturas,
      * para que el frontend pueda disparar la "alarma perimetral".

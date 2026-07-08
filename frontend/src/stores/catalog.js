@@ -15,9 +15,10 @@ export const useCatalogStore = defineStore('catalog', {
       this.cargando = true
       this.error = null
       try {
+        // Los selectores operativos solo muestran refugios activos.
         const [orgs, shelters] = await Promise.all([
           api.get('/organizations'),
-          api.get('/shelters'),
+          api.get('/shelters', { params: { soloActivos: true } }),
         ])
         this.organizations = orgs.data
         this.shelters = shelters.data
@@ -26,6 +27,46 @@ export const useCatalogStore = defineStore('catalog', {
       } finally {
         this.cargando = false
       }
+    },
+
+    /**
+     * Carga refugios para el módulo de administración.
+     * @param {boolean} soloActivos - si true, omite los inactivos.
+     */
+    async cargarRefugios(soloActivos = false) {
+      const params = soloActivos ? { soloActivos: true } : {}
+      const { data } = await api.get('/shelters', { params })
+      return data
+    },
+
+    /**
+     * Crea un refugio.
+     * @param {{nombre: string, zona: string, latitud: ?string, longitud: ?string, capacidadCensada: ?number, organizationId: ?number}} datos
+     */
+    async crearRefugio(datos) {
+      const { data } = await api.post('/shelters', datos)
+      return data
+    },
+
+    /**
+     * Actualiza un refugio existente.
+     * @param {number} id
+     * @param {object} datos
+     */
+    async actualizarRefugio(id, datos) {
+      const { data } = await api.put(`/shelters/${id}`, datos)
+      return data
+    },
+
+    /**
+     * Activa o inactiva un refugio (soft-delete).
+     * @param {number} id
+     * @param {boolean} activo
+     * @param {{coordinatorId: number, firma: string}} firmaData - datos de firma para trazabilidad
+     */
+    async cambiarEstadoRefugio(id, activo, firmaData) {
+      const { data } = await api.patch(`/shelters/${id}/estado`, { activo, ...firmaData })
+      return data
     },
 
     async cargarBeneficiarios(shelterId = null) {

@@ -30,14 +30,22 @@ class InventoryEvent
     #[ORM\Column(type: 'string', length: 20, enumType: EventType::class)]
     private EventType $tipo;
 
-    #[ORM\Column(type: 'string', length: 120)]
-    private string $item;
+    #[ORM\Column(type: 'string', length: 120, nullable: true)]
+    private ?string $item = null;
 
-    #[ORM\Column(type: 'decimal', precision: 12, scale: 3)]
-    private string $cantidad;
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 3, nullable: true)]
+    private ?string $cantidad = null;
 
-    #[ORM\Column(type: 'string', length: 20)]
-    private string $unidad;
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
+    private ?string $unidad = null;
+
+    /**
+     * Datos de configuración (JSON) para eventos de tipo CONFIG_*.
+     * Contiene los datos específicos de la acción administrativa
+     * (ej. datos del refugio creado/editado/inactivado).
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $datosConfiguracion = null;
 
     // Nullable: no todo evento está atado a un beneficiario específico
     // (p. ej. un IN_STOCK de ingreso a bodega).
@@ -46,12 +54,12 @@ class InventoryEvent
     private ?Beneficiary $beneficiary = null;
 
     #[ORM\ManyToOne(targetEntity: Shelter::class, inversedBy: 'inventoryEvents')]
-    #[ORM\JoinColumn(name: 'shelter_id', nullable: false)]
-    private Shelter $shelter;
+    #[ORM\JoinColumn(name: 'shelter_id', nullable: true)]
+    private ?Shelter $shelter = null;
 
     #[ORM\ManyToOne(targetEntity: Organization::class, inversedBy: 'inventoryEvents')]
-    #[ORM\JoinColumn(name: 'organization_id', nullable: false)]
-    private Organization $organization;
+    #[ORM\JoinColumn(name: 'organization_id', nullable: true)]
+    private ?Organization $organization = null;
 
     /**
      * Coordinador (persona verificada) que originó y firmó el evento. Su clave
@@ -182,26 +190,38 @@ class InventoryEvent
         return $this;
     }
 
-    public function getShelter(): Shelter
+    public function getShelter(): ?Shelter
     {
         return $this->shelter;
     }
 
-    public function setShelter(Shelter $shelter): static
+    public function setShelter(?Shelter $shelter): static
     {
         $this->shelter = $shelter;
 
         return $this;
     }
 
-    public function getOrganization(): Organization
+    public function getOrganization(): ?Organization
     {
         return $this->organization;
     }
 
-    public function setOrganization(Organization $organization): static
+    public function setOrganization(?Organization $organization): static
     {
         $this->organization = $organization;
+
+        return $this;
+    }
+
+    public function getDatosConfiguracion(): ?array
+    {
+        return $this->datosConfiguracion;
+    }
+
+    public function setDatosConfiguracion(?array $datosConfiguracion): static
+    {
+        $this->datosConfiguracion = $datosConfiguracion;
 
         return $this;
     }
