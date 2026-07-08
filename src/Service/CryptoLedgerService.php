@@ -59,7 +59,8 @@ class CryptoLedgerService
             ->setCanalOrigen($data->canalOrigen)
             ->setEstado($data->resolveEstado())
             ->setLoteId($data->loteId)
-            ->setFirmaOrigen($data->firmaOrigen);
+            ->setFirmaOrigen($data->firmaOrigen)
+            ->setDatosConfiguracion($data->datosConfiguracion);
 
         // 1. Verificar la firma de origen contra el historial de claves públicas del coordinador
         //    que la generó. La firma cubre el payload canónico (que ya incluye
@@ -229,15 +230,20 @@ class CryptoLedgerService
         $data = [
             'tipo' => $event->getTipo()->value,
             'item' => $event->getItem(),
-            'cantidad' => $this->normalizeCantidad($event->getCantidad()),
+            'cantidad' => $event->getCantidad() !== null ? $this->normalizeCantidad($event->getCantidad()) : null,
             'unidad' => $event->getUnidad(),
             'beneficiary_token' => $event->getBeneficiary()?->getBeneficiaryToken(),
-            'shelter_id' => $event->getShelter()->getId(),
-            'organization_id' => $event->getOrganization()->getId(),
+            'shelter_id' => $event->getShelter()?->getId(),
+            'organization_id' => $event->getOrganization()?->getId(),
             'coordinator_id' => $event->getCoordinatorOrigen()?->getId(),
             'canal_origen' => $event->getCanalOrigen()->value,
             'lote_id' => $event->getLoteId(),
         ];
+
+        // Para eventos de configuración, incluir datosConfiguracion en el payload
+        if (str_starts_with($event->getTipo()->value, 'config_')) {
+            $data['datos_configuracion'] = $event->getDatosConfiguracion();
+        }
 
         ksort($data);
 

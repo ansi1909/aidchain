@@ -36,6 +36,14 @@ class Shelter
     private ?int $capacidadCensada = null;
 
     /**
+     * Indica si el refugio está activo. Un refugio inactivo se conserva por
+     * integridad histórica (censo y ledger inmutable lo referencian) pero se
+     * oculta de los selectores operativos.
+     */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    private bool $activo = true;
+
+    /**
      * Organización que creó o gestiona el refugio (opcional).
      * Un refugio puede ser compartido por varias organizaciones;
      * esta relación es de atribución, no de propiedad exclusiva.
@@ -123,6 +131,18 @@ class Shelter
     public function setCapacidadCensada(?int $capacidadCensada): static
     {
         $this->capacidadCensada = $capacidadCensada;
+
+        return $this;
+    }
+
+    public function isActivo(): bool
+    {
+        return $this->activo;
+    }
+
+    public function setActivo(bool $activo): static
+    {
+        $this->activo = $activo;
 
         return $this;
     }

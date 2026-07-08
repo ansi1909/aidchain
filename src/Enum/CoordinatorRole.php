@@ -16,4 +16,7 @@ enum CoordinatorRole: string
 
     // Perfil de auditoría/administración (lectura y liberación de bloqueos)
     case AUDITOR = 'auditor';
+
+    // Perfil de configuración del sistema (gestión de refugios, umbrales, catálogos)
+    case ADMIN = 'admin';
 }

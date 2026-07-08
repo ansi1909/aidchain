@@ -15,4 +15,9 @@ enum EventType: string
 
     // Ingreso de mercancía a un centro de acopio (donación, compra, etc.)
     case IN_STOCK = 'in_stock';
+
+    // Eventos de configuración (trazabilidad de acciones admin)
+    case CONFIG_SHELTER_CREATE = 'config_shelter_create';
+    case CONFIG_SHELTER_UPDATE = 'config_shelter_update';
+    case CONFIG_SHELTER_INACTIVATE = 'config_shelter_inactivate';
 }
