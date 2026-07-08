@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Dto\EventData;
 use App\Entity\Coordinator;
 use App\Entity\Shelter;
+use App\Enum\CoordinatorRole;
 use App\Enum\EventChannel;
 use App\Enum\EventType;
 use App\Repository\CoordinatorRepository;
@@ -84,7 +85,7 @@ class ShelterController extends AbstractController
         }
 
         // Verificar rol admin
-        if (!$coordinator->hasRole('admin')) {
+        if (!$coordinator->hasRole(CoordinatorRole::ADMIN)) {
             return $this->json(['error' => 'Solo administradores pueden crear refugios.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -100,15 +101,14 @@ class ShelterController extends AbstractController
         $this->entityManager->flush();
 
         // Registrar evento de configuración en el ledger
+        // Usar los mismos datos que envió el frontend para que el payload canónico coincida
         $configData = [
-            'shelter_id' => $shelter->getId(),
-            'nombre' => $shelter->getNombre(),
-            'zona' => $shelter->getZona(),
-            'latitud' => $shelter->getLatitud(),
-            'longitud' => $shelter->getLongitud(),
-            'capacidadCensada' => $shelter->getCapacidadCensada(),
-            'organizationId' => $shelter->getOrganization()?->getId(),
-            'activo' => $shelter->isActivo(),
+            'nombre' => $body['nombre'],
+            'zona' => $body['zona'],
+            'latitud' => $body['latitud'],
+            'longitud' => $body['longitud'],
+            'capacidadCensada' => $body['capacidadCensada'],
+            'organizationId' => $body['organizationId'],
         ];
 
         $eventData = new EventData(
@@ -127,9 +127,11 @@ class ShelterController extends AbstractController
         try {
             $this->cryptoLedgerService->appendEvent($eventData);
         } catch (\Exception $e) {
-            // Si falla el ledger, revertir el cambio
-            $this->entityManager->remove($shelter);
-            $this->entityManager->flush();
+            // Si falla el ledger, intentar revertir el cambio si el EntityManager aún está abierto
+            if ($this->entityManager->isOpen()) {
+                $this->entityManager->remove($shelter);
+                $this->entityManager->flush();
+            }
             return $this->json(['error' => 'Error al registrar en ledger: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
@@ -166,7 +168,7 @@ class ShelterController extends AbstractController
         }
 
         // Verificar rol admin
-        if (!$coordinator->hasRole('admin')) {
+        if (!$coordinator->hasRole(CoordinatorRole::ADMIN)) {
             return $this->json(['error' => 'Solo administradores pueden editar refugios.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -244,7 +246,7 @@ class ShelterController extends AbstractController
         }
 
         // Verificar rol admin
-        if (!$coordinator->hasRole('admin')) {
+        if (!$coordinator->hasRole(CoordinatorRole::ADMIN)) {
             return $this->json(['error' => 'Solo administradores pueden cambiar el estado de refugios.'], Response::HTTP_FORBIDDEN);
         }
 

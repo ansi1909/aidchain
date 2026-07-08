@@ -155,22 +155,19 @@ function normalizeCantidad(v) {
  */
 export function buildCanonicalPayload(e) {
   // Orden alfabético ascendente de claves (equivalente a ksort en PHP).
+  // El orden debe coincidir exactamente con el orden alfabético de PHP
   const ordered = {
     beneficiary_token: e.beneficiaryToken ?? null,
     canal_origen: e.canalOrigen,
     cantidad: e.cantidad !== null ? normalizeCantidad(e.cantidad) : null,
     coordinator_id: e.coordinatorId,
+    datos_configuracion: e.datosConfiguracion,
     item: e.item,
     lote_id: e.loteId ?? null,
     organization_id: e.organizationId,
     shelter_id: e.shelterId,
     tipo: e.tipo,
     unidad: e.unidad,
-  }
-
-  // Para eventos de configuración, incluir datosConfiguracion en el payload
-  if (e.tipo && e.tipo.startsWith('config_')) {
-    ordered.datos_configuracion = e.datosConfiguracion
   }
 
   return JSON.stringify(ordered)

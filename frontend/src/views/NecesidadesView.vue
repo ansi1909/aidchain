@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed } from 'vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useNeedsStore } from '../stores/needs'
+import { useIdentityStore } from '../stores/identity'
 import BaseCard from '../components/ui/BaseCard.vue'
 import BaseInput from '../components/ui/BaseInput.vue'
 import BaseSelect from '../components/ui/BaseSelect.vue'
@@ -11,6 +12,18 @@ import BaseTooltip from '../components/ui/BaseTooltip.vue'
 
 const catalog = useCatalogStore()
 const needs = useNeedsStore()
+const identity = useIdentityStore()
+
+const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+
+const refugiosDisponibles = computed(() => {
+  const shelterIdAsignado = identity.coordinator?.shelterId
+  if (esEncargadoRefugio.value && shelterIdAsignado) {
+    return catalog.shelters.filter(s => s.id === shelterIdAsignado)
+  }
+  return catalog.shelters
+})
 
 const form = reactive({
   shelterId: '',
@@ -32,8 +45,14 @@ const prioridades = [
 ]
 
 onMounted(async () => {
+  await identity.init()
   if (catalog.shelters.length === 0) {
     await catalog.cargarCatalogos()
+  }
+  // Auto-seleccionar el refugio asignado para encargado de refugio
+  if (esEncargadoRefugio.value && identity.coordinator?.shelterId) {
+    form.shelterId = String(identity.coordinator.shelterId)
+    await cargarNecesidades()
   }
 })
 
@@ -153,9 +172,10 @@ function getPrioridadColor(prioridad) {
         <label class="block text-sm font-medium text-aid-text">Refugio</label>
         <BaseSelect
           v-model="form.shelterId"
-          :options="catalog.shelters.map((s) => ({ value: s.id, label: s.nombre }))"
+          :options="refugiosDisponibles.map((s) => ({ value: s.id, label: s.nombre }))"
           placeholder="Selecciona un refugio"
           @change="cargarNecesidades"
+          :disabled="esEncargadoRefugio"
         />
       </div>
 

@@ -2,6 +2,7 @@
 import { onMounted, ref, computed, watch } from 'vue'
 import QRCode from 'qrcode'
 import { useCatalogStore } from '../stores/catalog'
+import { useIdentityStore } from '../stores/identity'
 import api from '../services/api'
 import BaseCard from '../components/ui/BaseCard.vue'
 import BaseInput from '../components/ui/BaseInput.vue'
@@ -11,6 +12,18 @@ import BaseAlert from '../components/ui/BaseAlert.vue'
 import BaseTooltip from '../components/ui/BaseTooltip.vue'
 
 const catalog = useCatalogStore()
+const identity = useIdentityStore()
+
+const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+
+const refugiosDisponibles = computed(() => {
+  const shelterIdAsignado = identity.coordinator?.shelterId
+  if (esEncargadoRefugio.value && shelterIdAsignado) {
+    return catalog.shelters.filter(s => s.id === shelterIdAsignado)
+  }
+  return catalog.shelters
+})
 
 const shelterId = ref('')
 const busqueda = ref('')
@@ -47,8 +60,14 @@ watch(shelterId, async (id) => {
 })
 
 onMounted(async () => {
+  await identity.init()
   if (catalog.shelters.length === 0) {
     await catalog.cargarCatalogos()
+  }
+  // Auto-seleccionar el refugio asignado para encargado de refugio
+  if (esEncargadoRefugio.value && identity.coordinator?.shelterId) {
+    shelterId.value = String(identity.coordinator.shelterId)
+    await cargarBeneficiarios(shelterId.value)
   }
 })
 
@@ -129,9 +148,10 @@ function descargarQr() {
           v-model="shelterId"
           label="Refugio"
           placeholder="Selecciona un refugio"
-          :options="catalog.shelters"
+          :options="refugiosDisponibles"
           value-key="id"
           label-key="nombre"
+          :disabled="esEncargadoRefugio"
         />
         <BaseInput
           v-if="shelterId"

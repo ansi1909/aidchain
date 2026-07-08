@@ -48,11 +48,20 @@ class CryptoLedgerService
     public function appendEvent(EventData $data): InventoryEvent
     {
         $event = new InventoryEvent();
-        $event->setTipo($data->tipo)
-            ->setItem($data->item)
-            ->setCantidad($data->cantidad)
-            ->setUnidad($data->unidad)
-            ->setShelter($data->shelter)
+        $event->setTipo($data->tipo);
+        
+        // Solo establecer campos de inventario si no son null (para eventos de configuración)
+        if ($data->item !== null) {
+            $event->setItem($data->item);
+        }
+        if ($data->cantidad !== null) {
+            $event->setCantidad($data->cantidad);
+        }
+        if ($data->unidad !== null) {
+            $event->setUnidad($data->unidad);
+        }
+        
+        $event->setShelter($data->shelter)
             ->setOrganization($data->organization)
             ->setCoordinatorOrigen($data->coordinatorOrigen)
             ->setBeneficiary($data->beneficiary)
@@ -67,6 +76,12 @@ class CryptoLedgerService
         //    el coordinator_id, de modo que la identidad del firmante queda
         //    criptográficamente ligada al contenido y a la cadena).
         $payload = $this->canonicalPayload($event);
+        
+        // DEBUG: Log para verificar el payload canónico
+        error_log('=== DEBUG FIRMA BACKEND ===');
+        error_log('Payload canónico reconstruido: ' . $payload);
+        error_log('Coordinator ID: ' . ($data->coordinatorOrigen ? $data->coordinatorOrigen->getId() : 'null'));
+        
         $coordinator = $data->coordinatorOrigen;
         if ($coordinator === null) {
             throw new InvalidSignatureException('El evento no tiene un coordinador de origen para verificar la firma.');

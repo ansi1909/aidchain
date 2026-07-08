@@ -27,7 +27,7 @@ class InventoryEvent
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\Column(type: 'string', length: 20, enumType: EventType::class)]
+    #[ORM\Column(type: 'string', length: 30, enumType: EventType::class)]
     private EventType $tipo;
 
     #[ORM\Column(type: 'string', length: 120, nullable: true)]
@@ -142,36 +142,36 @@ class InventoryEvent
         return $this;
     }
 
-    public function getItem(): string
+    public function getItem(): ?string
     {
         return $this->item;
     }
 
-    public function setItem(string $item): static
+    public function setItem(?string $item): static
     {
         $this->item = $item;
 
         return $this;
     }
 
-    public function getCantidad(): string
+    public function getCantidad(): ?string
     {
         return $this->cantidad;
     }
 
-    public function setCantidad(string $cantidad): static
+    public function setCantidad(?string $cantidad): static
     {
         $this->cantidad = $cantidad;
 
         return $this;
     }
 
-    public function getUnidad(): string
+    public function getUnidad(): ?string
     {
         return $this->unidad;
     }
 
-    public function setUnidad(string $unidad): static
+    public function setUnidad(?string $unidad): static
     {
         $this->unidad = $unidad;
 

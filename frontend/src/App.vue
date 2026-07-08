@@ -16,15 +16,13 @@ const refugiosMenuOpen = ref(false)
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
-  { to: '/censo', label: 'Censo', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6 4h8a2 2 0 002-2v-8a2 2 0 00-2-2h-5.5' },
   { to: '/despacho', label: 'Despacho', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
   { to: '/recepcion', label: 'Recepción', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { to: '/necesidades', label: 'Necesidades', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { to: '/inventario', label: 'Inventario', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-  { to: '/entrega', label: 'Padrón', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
 ]
 
 const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+const puedeVerRefugios = computed(() => esAdmin.value || esEncargadoRefugio.value)
 
 const ROLE_LABELS = {
   despachador: 'Despachador',
@@ -120,8 +118,8 @@ onMounted(async () => {
           <span>{{ item.label }}</span>
         </RouterLink>
 
-        <!-- Grupo Refugios (solo admin) -->
-        <div v-if="esAdmin" class="space-y-1">
+        <!-- Grupo Refugios (admin y encargado de refugio) -->
+        <div v-if="puedeVerRefugios" class="space-y-1">
           <button
             type="button"
             class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
@@ -154,6 +152,38 @@ onMounted(async () => {
               @click="sidebarOpen = false"
             >
               Gestión de refugios
+            </RouterLink>
+            <RouterLink
+              to="/censo"
+              class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
+              :class="route.path === '/censo' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              @click="sidebarOpen = false"
+            >
+              Censo
+            </RouterLink>
+            <RouterLink
+              to="/necesidades"
+              class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
+              :class="route.path === '/necesidades' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              @click="sidebarOpen = false"
+            >
+              Necesidades
+            </RouterLink>
+            <RouterLink
+              to="/inventario"
+              class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
+              :class="route.path === '/inventario' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              @click="sidebarOpen = false"
+            >
+              Inventario
+            </RouterLink>
+            <RouterLink
+              to="/entrega"
+              class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
+              :class="route.path === '/entrega' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              @click="sidebarOpen = false"
+            >
+              Padrón
             </RouterLink>
           </div>
         </div>

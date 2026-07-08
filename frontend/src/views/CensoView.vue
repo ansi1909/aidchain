@@ -3,6 +3,7 @@ import { onMounted, reactive, ref, computed } from 'vue'
 import QRCode from 'qrcode'
 import * as XLSX from 'xlsx'
 import { useCatalogStore } from '../stores/catalog'
+import { useIdentityStore } from '../stores/identity'
 import BaseCard from '../components/ui/BaseCard.vue'
 import BaseInput from '../components/ui/BaseInput.vue'
 import BaseSelect from '../components/ui/BaseSelect.vue'
@@ -11,6 +12,18 @@ import BaseAlert from '../components/ui/BaseAlert.vue'
 import BaseTooltip from '../components/ui/BaseTooltip.vue'
 
 const catalog = useCatalogStore()
+const identity = useIdentityStore()
+
+const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+
+const refugiosDisponibles = computed(() => {
+  const shelterIdAsignado = identity.coordinator?.shelterId
+  if (esEncargadoRefugio.value && shelterIdAsignado) {
+    return catalog.shelters.filter(s => s.id === shelterIdAsignado)
+  }
+  return catalog.shelters
+})
 
 const form = reactive({
   shelterId: '',
@@ -47,8 +60,13 @@ const documentoError = computed(() => {
 })
 
 onMounted(async () => {
+  await identity.init()
   if (catalog.shelters.length === 0) {
     await catalog.cargarCatalogos()
+  }
+  // Auto-seleccionar el refugio asignado para encargado de refugio
+  if (esEncargadoRefugio.value && identity.coordinator?.shelterId) {
+    form.shelterId = String(identity.coordinator.shelterId)
   }
 })
 
@@ -245,10 +263,11 @@ async function procesarExcel() {
           v-model="form.shelterId"
           label="Refugio"
           placeholder="Selecciona un refugio"
-          :options="catalog.shelters"
+          :options="refugiosDisponibles"
           value-key="id"
           label-key="nombre"
           required
+          :disabled="esEncargadoRefugio"
         />
 
         <!-- Carga masiva por Excel -->

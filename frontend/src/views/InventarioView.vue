@@ -2,13 +2,23 @@
 import { onMounted, computed, ref } from 'vue'
 import { useStockStore } from '../stores/stock'
 import { useNeedsStore } from '../stores/needs'
+import { useCatalogStore } from '../stores/catalog'
+import { useIdentityStore } from '../stores/identity'
 import BaseCard from '../components/ui/BaseCard.vue'
 import BaseButton from '../components/ui/BaseButton.vue'
 import BaseAlert from '../components/ui/BaseAlert.vue'
 import BaseTooltip from '../components/ui/BaseTooltip.vue'
+import BaseSelect from '../components/ui/BaseSelect.vue'
 
 const stock = useStockStore()
 const needs = useNeedsStore()
+const catalog = useCatalogStore()
+const identity = useIdentityStore()
+
+const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+
+const shelterSeleccionado = ref('')
 
 const cargando = ref(false)
 const error = ref(null)
@@ -25,7 +35,17 @@ async function cargar() {
   }
 }
 
-onMounted(cargar)
+onMounted(async () => {
+  await identity.init()
+  if (catalog.shelters.length === 0) {
+    await catalog.cargarCatalogos()
+  }
+  // Auto-seleccionar el refugio asignado para encargado de refugio
+  if (esEncargadoRefugio.value && identity.coordinator?.shelterId) {
+    shelterSeleccionado.value = String(identity.coordinator.shelterId)
+  }
+  await cargar()
+})
 
 const num = (v) => Number(v ?? 0)
 
@@ -35,6 +55,7 @@ const num = (v) => Number(v ?? 0)
  */
 const refugios = computed(() => {
   const mapa = new Map()
+  const shelterIdAsignado = identity.coordinator?.shelterId
 
   const asegurarRefugio = (shelter) => {
     if (!mapa.has(shelter.id)) {
@@ -59,6 +80,14 @@ const refugios = computed(() => {
 
   // Necesidades (demanda)
   for (const n of needs.dashboardNeeds) {
+    // Filtrar por rol y selección
+    if (esEncargadoRefugio.value && shelterIdAsignado && n.shelter.id !== shelterIdAsignado) {
+      continue
+    }
+    if (esAdmin.value && shelterSeleccionado.value && n.shelter.id !== Number(shelterSeleccionado.value)) {
+      continue
+    }
+    
     const refugio = asegurarRefugio(n.shelter)
     const fila = asegurarFila(refugio, n.item, null)
     fila.requerido += num(n.cantidadRequerida)
@@ -68,6 +97,14 @@ const refugios = computed(() => {
 
   // Stock (inventario)
   for (const s of stock.dashboardStock) {
+    // Filtrar por rol y selección
+    if (esEncargadoRefugio.value && shelterIdAsignado && s.shelter.id !== shelterIdAsignado) {
+      continue
+    }
+    if (esAdmin.value && shelterSeleccionado.value && s.shelter.id !== Number(shelterSeleccionado.value)) {
+      continue
+    }
+    
     const refugio = asegurarRefugio(s.shelter)
     const fila = asegurarFila(refugio, s.item, s.unidad)
     fila.disponible += num(s.cantidadDisponible)
@@ -121,7 +158,17 @@ function porcentaje(fila) {
       </p>
     </header>
 
-    <div class="mb-4 flex justify-end">
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <BaseSelect
+        v-if="esAdmin"
+        v-model="shelterSeleccionado"
+        label="Refugio"
+        placeholder="Todos los refugios"
+        :options="catalog.shelters"
+        value-key="id"
+        label-key="nombre"
+        class="w-64"
+      />
       <BaseButton variant="secondary" size="sm" :loading="cargando" @click="cargar">
         Actualizar
       </BaseButton>

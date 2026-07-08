@@ -15,6 +15,8 @@ const catalog = useCatalogStore()
 const identity = useIdentityStore()
 
 const esAdmin = computed(() => (identity.coordinator?.roles ?? []).includes('admin'))
+const esEncargadoRefugio = computed(() => (identity.coordinator?.roles ?? []).includes('encargado_refugio'))
+const puedeVerRefugios = computed(() => esAdmin.value || esEncargadoRefugio.value)
 
 const refugios = ref([])
 const cargando = ref(false)
@@ -38,7 +40,14 @@ const form = reactive({
 
 const refugiosFiltrados = computed(() => {
   const q = busqueda.value.trim().toLowerCase()
+  const shelterIdAsignado = identity.coordinator?.shelterId
+  
   return refugios.value.filter((r) => {
+    // Para encargado de refugio, solo mostrar su refugio asignado
+    if (esEncargadoRefugio.value && shelterIdAsignado && r.id !== shelterIdAsignado) {
+      return false
+    }
+    
     if (!mostrarInactivos.value && !r.activo) return false
     if (!q) return true
     return (
@@ -48,6 +57,36 @@ const refugiosFiltrados = computed(() => {
     )
   })
 })
+
+async function obtenerUbicacionActual() {
+  if (!navigator.geolocation) {
+    formError.value = 'La geolocalización no está disponible en este navegador.'
+    return
+  }
+
+  try {
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      })
+    })
+
+    form.latitud = position.coords.latitude.toFixed(7)
+    form.longitud = position.coords.longitude.toFixed(7)
+  } catch (err) {
+    if (err.code === 1) {
+      formError.value = 'Permiso de ubicación denegado. Por favor habilita el acceso a tu ubicación.'
+    } else if (err.code === 2) {
+      formError.value = 'No se pudo obtener la ubicación. Verifica tu conexión GPS.'
+    } else if (err.code === 3) {
+      formError.value = 'Tiempo de espera agotado al obtener la ubicación.'
+    } else {
+      formError.value = 'Error al obtener la ubicación: ' + err.message
+    }
+  }
+}
 
 onMounted(async () => {
   await identity.init()
@@ -149,7 +188,14 @@ async function guardar() {
       datosConfiguracion: datosConfig,
     })
 
+    console.log('=== DEBUG FIRMA ===')
+    console.log('Payload canónico:', canonical)
+    console.log('Datos de configuración:', datosConfig)
+    console.log('Coordinator ID:', identity.coordinator.id)
+
     const firma = await signMessage(canonical)
+
+    console.log('Firma generada:', firma)
 
     const payloadConFirma = {
       ...payload,
@@ -166,7 +212,10 @@ async function guardar() {
     modalAbierto.value = false
     await cargar()
   } catch (err) {
-    formError.value = err?.response?.data?.error || 'No se pudo guardar el refugio.'
+    console.error('Error al guardar refugio:', err)
+    console.error('Error response:', err?.response)
+    console.error('Error data:', err?.response?.data)
+    formError.value = err?.response?.data?.error || err?.message || 'No se pudo guardar el refugio.'
   } finally {
     guardando.value = false
   }
@@ -230,8 +279,8 @@ async function alternarEstado(refugio) {
       </BaseButton>
     </header>
 
-    <BaseAlert v-if="!esAdmin" variant="warning" title="Rol requerido">
-      La gestión de refugios está disponible solo para coordinadores con rol <strong>Administrador</strong>.
+    <BaseAlert v-if="!puedeVerRefugios" variant="warning" title="Rol requerido">
+      La gestión de refugios está disponible solo para coordinadores con rol <strong>Administrador</strong> o <strong>Encargado de refugio</strong>.
     </BaseAlert>
 
     <template v-else>
@@ -302,6 +351,7 @@ async function alternarEstado(refugio) {
                       Editar
                     </BaseButton>
                     <BaseButton
+                      v-if="esAdmin"
                       :variant="r.activo ? 'danger' : 'success'"
                       size="sm"
                       @click="alternarEstado(r)"
@@ -320,7 +370,7 @@ async function alternarEstado(refugio) {
     <!-- Modal crear/editar -->
     <div
       v-if="modalAbierto"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 pt-20"
       @click.self="cerrarModal"
     >
       <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
@@ -332,9 +382,26 @@ async function alternarEstado(refugio) {
           <BaseInput v-model="form.nombre" label="Nombre" placeholder="Ej. Refugio Central Zona A" required />
           <BaseInput v-model="form.zona" label="Zona" placeholder="Ej. Zona A" required />
 
-          <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="form.latitud" label="Latitud" placeholder="10.4806000" />
-            <BaseInput v-model="form.longitud" label="Longitud" placeholder="-66.9036000" />
+          <div class="space-y-4">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-aid-text">Ubicación</span>
+              <BaseButton
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="obtenerUbicacionActual"
+              >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Usar mi ubicación actual
+              </BaseButton>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <BaseInput v-model="form.latitud" label="Latitud" placeholder="10.4806000" />
+              <BaseInput v-model="form.longitud" label="Longitud" placeholder="-66.9036000" />
+            </div>
           </div>
 
           <div class="grid gap-4 sm:grid-cols-2">
