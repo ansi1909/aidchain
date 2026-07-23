@@ -28,7 +28,7 @@ final class EventData
         public readonly ?Organization $organization = null,
         public readonly EventChannel $canalOrigen = EventChannel::WEB,
         /** Firma ECDSA P-256 (base64) generada por el origen sobre el payload canónico. */
-        public readonly string $firmaOrigen,
+        public readonly string $firmaOrigen = '',
         /**
          * Coordinador que origina y firma el evento. Su clave pública valida
          * `firmaOrigen`. Puede ser null en canales delegados (WhatsApp/Excel),

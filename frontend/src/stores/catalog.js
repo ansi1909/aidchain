@@ -77,8 +77,21 @@ export const useCatalogStore = defineStore('catalog', {
     },
 
     /**
+     * Busca representantes de grupo familiar por nombre o cédula dentro de un refugio.
+     * @param {?number} shelterId
+     * @param {string} query
+     */
+    async buscarRepresentantes(shelterId = null, query = '') {
+      const params = { soloRepresentantes: true }
+      if (shelterId) params.shelterId = shelterId
+      if (query) params.query = query
+      const { data } = await api.get('/beneficiaries', { params })
+      return data
+    },
+
+    /**
      * Registra un beneficiario en el censo.
-     * @param {{nombre: ?string, shelterId: number, datosDemograficos: ?object}} datos
+     * @param {{nombre: ?string, documento: ?string, shelterId: number, esRepresentante: ?boolean, representanteId: ?number, documentoRepresentante: ?string, datosDemograficos: ?object}} datos
      */
     async crearBeneficiario(datos) {
       const { data } = await api.post('/beneficiaries', datos)

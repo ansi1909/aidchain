@@ -325,12 +325,12 @@ async function onSubmit() {
               >
                 <div>
                   <span class="font-medium text-aid-navy">{{ need.item }}</span>
-                  <span class="ml-2 text-aid-text-light">({{ need.cantidadRequerida }} {{ need.prioridadLabel }})</span>
+                  <span class="ml-2 text-aid-text-light">({{ need.cantidadRequerida }} {{ need.unidad || '' }} · {{ need.prioridadLabel }})</span>
                 </div>
                 <button
                   type="button"
                   class="text-aid-teal hover:text-aid-teal-700"
-                  @click="form.item = need.item"
+                  @click="form.item = need.item; if (need.unidad) form.unidad = need.unidad"
                 >
                   Usar
                 </button>

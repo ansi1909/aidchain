@@ -29,6 +29,7 @@ const form = reactive({
   shelterId: '',
   item: '',
   cantidadRequerida: '',
+  unidad: 'unidades',
   prioridad: '',
   notas: '',
 })
@@ -42,6 +43,20 @@ const prioridades = [
   { value: 'media', label: 'Media' },
   { value: 'alta', label: 'Alta' },
   { value: 'critica', label: 'Crítica' },
+]
+
+const unidadesComunes = [
+  { value: 'unidades', label: 'Unidades / Piezas' },
+  { value: 'cajas', label: 'Cajas' },
+  { value: 'litros', label: 'Litros (L)' },
+  { value: 'botellas', label: 'Botellas' },
+  { value: 'botellones', label: 'Botellones' },
+  { value: 'ampollas', label: 'Ampollas' },
+  { value: 'pastillas', label: 'Pastillas / Comprimidos' },
+  { value: 'paquetes', label: 'Paquetes / Bolsas' },
+  { value: 'latas', label: 'Latas' },
+  { value: 'kg', label: 'Kilogramos (kg)' },
+  { value: 'toneladas', label: 'Toneladas' },
 ]
 
 onMounted(async () => {
@@ -68,10 +83,17 @@ async function cargarNecesidades() {
 
 async function onSubmit() {
   error.value = null
+
+  if (!form.shelterId || !form.item.trim() || !form.cantidadRequerida || !form.unidad || !form.prioridad) {
+    error.value = 'Por favor completa todos los campos requeridos (Insumo, Cantidad, Formato/Unidad y Prioridad).'
+    return
+  }
+
   enviando.value = true
   try {
     const datos = {
       item: form.item.trim(),
+      unidad: form.unidad,
       cantidadRequerida: Number(form.cantidadRequerida),
       prioridad: form.prioridad,
       notas: form.notas.trim() || null,
@@ -86,6 +108,7 @@ async function onSubmit() {
 
     form.item = ''
     form.cantidadRequerida = ''
+    form.unidad = 'unidades'
     form.prioridad = ''
     form.notas = ''
     await cargarNecesidades()
@@ -100,6 +123,7 @@ function editar(need) {
   editandoId.value = need.id
   form.item = need.item
   form.cantidadRequerida = need.cantidadRequerida
+  form.unidad = need.unidad || 'unidades'
   form.prioridad = need.prioridad
   form.notas = need.notas || ''
 }
@@ -108,6 +132,7 @@ function cancelarEdicion() {
   editandoId.value = null
   form.item = ''
   form.cantidadRequerida = ''
+  form.unidad = 'unidades'
   form.prioridad = ''
   form.notas = ''
 }
@@ -176,15 +201,17 @@ function getPrioridadColor(prioridad) {
           placeholder="Selecciona un refugio"
           @change="cargarNecesidades"
           :disabled="esEncargadoRefugio"
+          required
         />
       </div>
 
       <div v-if="form.shelterId" class="space-y-4">
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-3">
           <BaseInput
             v-model="form.item"
             label="Insumo"
             placeholder="Ej. Agua potable, Antibióticos"
+            required
           />
           <BaseInput
             v-model="form.cantidadRequerida"
@@ -192,6 +219,14 @@ function getPrioridadColor(prioridad) {
             type="number"
             step="0.001"
             placeholder="Ej. 50"
+            required
+          />
+          <BaseSelect
+            v-model="form.unidad"
+            label="Formato / Unidad"
+            :options="unidadesComunes"
+            placeholder="Selecciona formato"
+            required
           />
         </div>
 
@@ -201,10 +236,11 @@ function getPrioridadColor(prioridad) {
             label="Prioridad"
             :options="prioridades"
             placeholder="Selecciona prioridad"
+            required
           />
           <BaseInput
             v-model="form.notas"
-            label="Notas (opcional)"
+            label="Notas"
             placeholder="Detalles adicionales"
           />
         </div>
@@ -247,7 +283,7 @@ function getPrioridadColor(prioridad) {
               <span :class="getPrioridadColor(need.prioridad)">
                 {{ need.prioridadLabel }}
               </span>
-              · {{ need.cantidadRequerida }} {{ need.cantidadRecibida > 0 ? `(recibido: ${need.cantidadRecibida})` : '' }}
+              · {{ need.cantidadRequerida }} {{ need.unidad || 'unidades' }} {{ need.cantidadRecibida > 0 ? `(recibido: ${need.cantidadRecibida} ${need.unidad || 'unidades'})` : '' }}
             </div>
             <div v-if="need.notas" class="mt-1 text-xs text-aid-text-light">
               {{ need.notas }}

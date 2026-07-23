@@ -43,6 +43,7 @@ class ShelterNeedController extends AbstractController
             static fn (ShelterNeed $n): array => [
                 'id' => $n->getId(),
                 'item' => $n->getItem(),
+                'unidad' => $n->getUnidad(),
                 'cantidadRequerida' => $n->getCantidadRequerida(),
                 'cantidadRecibida' => $n->getCantidadRecibida(),
                 'prioridad' => $n->getPrioridad()->value,
@@ -73,13 +74,14 @@ class ShelterNeedController extends AbstractController
             return $this->json(['error' => 'JSON inválido'], 400);
         }
 
-        $item = $data['item'] ?? null;
+        $item = trim((string) ($data['item'] ?? ''));
+        $unidad = trim((string) ($data['unidad'] ?? ''));
         $cantidadRequerida = $data['cantidadRequerida'] ?? null;
         $prioridad = $data['prioridad'] ?? null;
         $notas = $data['notas'] ?? null;
 
-        if (!$item || !$cantidadRequerida || !$prioridad) {
-            return $this->json(['error' => 'Faltan campos requeridos: item, cantidadRequerida, prioridad'], 400);
+        if ($item === '' || $unidad === '' || $cantidadRequerida === null || $cantidadRequerida === '' || !$prioridad) {
+            return $this->json(['error' => 'Faltan campos requeridos: item, cantidadRequerida, unidad, prioridad'], 400);
         }
 
         $prioridadEnum = ShelterNeedPriority::tryFrom($prioridad);
@@ -96,6 +98,7 @@ class ShelterNeedController extends AbstractController
         $need = new ShelterNeed();
         $need->setShelter($shelter);
         $need->setItem($item);
+        $need->setUnidad($unidad);
         $need->setCantidadRequerida((string) $cantidadRequerida);
         $need->setPrioridad($prioridadEnum);
         $need->setEstado(ShelterNeedStatus::PENDIENTE);
@@ -109,6 +112,7 @@ class ShelterNeedController extends AbstractController
         return $this->json([
             'id' => $need->getId(),
             'item' => $need->getItem(),
+            'unidad' => $need->getUnidad(),
             'cantidadRequerida' => $need->getCantidadRequerida(),
             'cantidadRecibida' => $need->getCantidadRecibida(),
             'prioridad' => $need->getPrioridad()->value,
@@ -138,6 +142,14 @@ class ShelterNeedController extends AbstractController
             return $this->json(['error' => 'JSON inválido'], 400);
         }
 
+        if (isset($data['item']) && trim((string) $data['item']) !== '') {
+            $need->setItem(trim((string) $data['item']));
+        }
+
+        if (isset($data['unidad']) && trim((string) $data['unidad']) !== '') {
+            $need->setUnidad(trim((string) $data['unidad']));
+        }
+
         if (isset($data['cantidadRequerida'])) {
             $need->setCantidadRequerida((string) $data['cantidadRequerida']);
         }
@@ -159,6 +171,7 @@ class ShelterNeedController extends AbstractController
         return $this->json([
             'id' => $need->getId(),
             'item' => $need->getItem(),
+            'unidad' => $need->getUnidad(),
             'cantidadRequerida' => $need->getCantidadRequerida(),
             'cantidadRecibida' => $need->getCantidadRecibida(),
             'prioridad' => $need->getPrioridad()->value,
@@ -198,6 +211,7 @@ class ShelterNeedController extends AbstractController
             static fn (ShelterNeed $n): array => [
                 'id' => $n->getId(),
                 'item' => $n->getItem(),
+                'unidad' => $n->getUnidad(),
                 'cantidadRequerida' => $n->getCantidadRequerida(),
                 'cantidadRecibida' => $n->getCantidadRecibida(),
                 'prioridad' => $n->getPrioridad()->value,

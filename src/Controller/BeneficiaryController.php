@@ -30,16 +30,24 @@ class BeneficiaryController extends AbstractController
     #[Route('', name: 'api_beneficiaries_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $criteria = [];
         $shelterId = $request->query->get('shelterId');
-        if ($shelterId !== null) {
-            $criteria['shelter'] = $shelterId;
+        $soloRepresentantes = filter_var($request->query->get('soloRepresentantes', false), FILTER_VALIDATE_BOOLEAN);
+        $query = $request->query->get('query');
+
+        if ($soloRepresentantes || ($query !== null && trim($query) !== '')) {
+            $beneficiaries = $this->beneficiaryRepository->findRepresentantesByShelterAndQuery(
+                $shelterId !== null ? (int) $shelterId : null,
+                $query
+            );
+        } else {
+            $criteria = [];
+            if ($shelterId !== null) {
+                $criteria['shelter'] = $shelterId;
+            }
+            $beneficiaries = $this->beneficiaryRepository->findBy($criteria, ['createdAt' => 'DESC']);
         }
 
-        $data = array_map(
-            $this->serialize(...),
-            $this->beneficiaryRepository->findBy($criteria, ['createdAt' => 'DESC']),
-        );
+        $data = array_map($this->serialize(...), $beneficiaries);
 
         return $this->json($data);
     }
@@ -60,6 +68,9 @@ class BeneficiaryController extends AbstractController
         $datos = $body['datosDemograficos'] ?? null;
         $sexo = $body['sexo'] ?? null;
         $telefono = $body['telefono'] ?? null;
+        $esRepresentante = filter_var($body['esRepresentante'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $representanteId = isset($body['representanteId']) && $body['representanteId'] !== '' ? (int) $body['representanteId'] : null;
+        $documentoRepresentante = isset($body['documentoRepresentante']) && $body['documentoRepresentante'] !== '' ? trim((string) $body['documentoRepresentante']) : null;
 
         $shelter = $shelterId !== null ? $this->shelterRepository->find($shelterId) : null;
         if ($shelter === null) {
@@ -73,10 +84,40 @@ class BeneficiaryController extends AbstractController
                 return $this->json(['error' => $documentoError], Response::HTTP_BAD_REQUEST);
             }
 
-            // Validar unicidad de documento
+            // Validar unicidad de documento en toda la base de datos (Regla 1)
             $existingBeneficiary = $this->beneficiaryRepository->findOneBy(['documento' => $documento]);
             if ($existingBeneficiary !== null) {
-                return $this->json(['error' => 'Ya existe un beneficiario con este documento de identidad.'], Response::HTTP_CONFLICT);
+                if (!$existingBeneficiary->isEsRepresentante()) {
+                    $rep = $existingBeneficiary->getRepresentante();
+                    $msgRep = $rep !== null ? ' del grupo familiar de ' . ($rep->getNombre() ?? 'otro representante') : '';
+                    return $this->json(['error' => "El documento $documento ya se encuentra registrado como miembro$msgRep."], Response::HTTP_CONFLICT);
+                }
+                return $this->json(['error' => "El documento $documento ya está censado como representante de un grupo familiar."], Response::HTTP_CONFLICT);
+            }
+        }
+
+        $representanteEntity = null;
+        if ($esRepresentante) {
+            if ($representanteId !== null || $documentoRepresentante !== null) {
+                return $this->json(['error' => 'Una persona registrada como representante/jefe de familia no puede tener otro representante asignado ni pertenecer a otro grupo.'], Response::HTTP_BAD_REQUEST);
+            }
+        } else {
+            if ($representanteId === null && $documentoRepresentante === null) {
+                return $this->json(['error' => 'Toda persona que no sea representante debe tener asociado obligatoriamente a su representante del grupo familiar.'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($representanteId !== null) {
+                $representanteEntity = $this->beneficiaryRepository->find($representanteId);
+            } elseif ($documentoRepresentante !== null) {
+                $representanteEntity = $this->beneficiaryRepository->findRepresentanteByDocumentoAndShelter($documentoRepresentante, $shelter->getId());
+            }
+
+            if ($representanteEntity === null) {
+                return $this->json(['error' => 'El representante indicado no fue encontrado o no es un representante activo de este refugio.'], Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$representanteEntity->isEsRepresentante() || $representanteEntity->getRepresentante() !== null) {
+                return $this->json(['error' => 'El representante seleccionado no es una cabeza de familia válida (ya pertenece como subordinado/miembro a otro grupo familiar).'], Response::HTTP_BAD_REQUEST);
             }
         }
 
@@ -111,7 +152,12 @@ class BeneficiaryController extends AbstractController
             ->setDocumento($documento)
             ->setShelter($shelter)
             ->setBeneficiaryToken($token)
+            ->setEsRepresentante($esRepresentante)
             ->setDatosDemograficos($datos);
+
+        if ($representanteEntity !== null) {
+            $beneficiary->setRepresentante($representanteEntity);
+        }
 
         $this->entityManager->persist($beneficiary);
         $this->entityManager->flush();
@@ -130,6 +176,13 @@ class BeneficiaryController extends AbstractController
             'documento' => $b->getDocumento(),
             'beneficiaryToken' => $b->getBeneficiaryToken(),
             'shelterId' => $b->getShelter()->getId(),
+            'esRepresentante' => $b->isEsRepresentante(),
+            'representanteId' => $b->getRepresentante()?->getId(),
+            'representante' => $b->getRepresentante() !== null ? [
+                'id' => $b->getRepresentante()->getId(),
+                'nombre' => $b->getRepresentante()->getNombre(),
+                'documento' => $b->getRepresentante()->getDocumento(),
+            ] : null,
             'datosDemograficos' => $b->getDatosDemograficos(),
             'createdAt' => $b->getCreatedAt()->format(\DateTimeInterface::ATOM),
         ];

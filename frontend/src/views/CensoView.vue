@@ -7,6 +7,7 @@ import { useIdentityStore } from '../stores/identity'
 import BaseCard from '../components/ui/BaseCard.vue'
 import BaseInput from '../components/ui/BaseInput.vue'
 import BaseSelect from '../components/ui/BaseSelect.vue'
+import BaseSearchSelect from '../components/ui/BaseSearchSelect.vue'
 import BaseButton from '../components/ui/BaseButton.vue'
 import BaseAlert from '../components/ui/BaseAlert.vue'
 import BaseTooltip from '../components/ui/BaseTooltip.vue'
@@ -34,11 +35,17 @@ const form = reactive({
   edad: '',
   personas: '',
   notas: '',
+  esRepresentante: 'si',
+  representanteId: '',
 })
 
 const enviando = ref(false)
 const error = ref(null)
 const ultimo = ref(null) // { token, nombre, qrDataUrl }
+
+// Estado para búsqueda de representantes de grupo
+const buscandoRep = ref(false)
+const representantesEncontrados = ref([])
 
 // Estados para carga de Excel
 const archivoExcel = ref(null)
@@ -67,16 +74,34 @@ onMounted(async () => {
   // Auto-seleccionar el refugio asignado para encargado de refugio
   if (esEncargadoRefugio.value && identity.coordinator?.shelterId) {
     form.shelterId = String(identity.coordinator.shelterId)
+    await cargarRepresentantes()
   }
 })
+
+async function cargarRepresentantes(query = '') {
+  if (!form.shelterId) return
+  buscandoRep.value = true
+  try {
+    representantesEncontrados.value = await catalog.buscarRepresentantes(Number(form.shelterId), query)
+  } finally {
+    buscandoRep.value = false
+  }
+}
 
 async function onSubmit() {
   error.value = null
   enviando.value = true
   try {
+    const esRep = form.esRepresentante === 'si'
+    const repId = !esRep && form.representanteId ? Number(form.representanteId) : null
+
+    if (!esRep && !repId) {
+      throw new Error('Debes seleccionar al representante del grupo familiar.')
+    }
+
     const datosDemograficos = {}
     if (form.edad) datosDemograficos.edad = Number(form.edad)
-    if (form.personas) datosDemograficos.personas = Number(form.personas)
+    if (esRep && form.personas) datosDemograficos.personas = Number(form.personas)
     if (form.notas.trim()) datosDemograficos.notas = form.notas.trim()
     if (form.sexo) datosDemograficos.sexo = form.sexo
     if (form.telefono.trim()) datosDemograficos.telefono = form.telefono.trim()
@@ -85,6 +110,8 @@ async function onSubmit() {
       nombre: form.nombre.trim() || null,
       documento: form.documento.trim() || null,
       shelterId: Number(form.shelterId),
+      esRepresentante: esRep,
+      representanteId: repId,
       datosDemograficos: Object.keys(datosDemograficos).length ? datosDemograficos : null,
     })
 
@@ -110,8 +137,14 @@ async function onSubmit() {
     form.edad = ''
     form.personas = ''
     form.notas = ''
+    form.representanteId = ''
+
+    // Actualizar lista de representantes si acabamos de registrar un nuevo representante
+    if (esRep) {
+      cargarRepresentantes()
+    }
   } catch (err) {
-    error.value = err?.response?.data?.error ?? 'No se pudo registrar al beneficiario.'
+    error.value = err?.response?.data?.error ?? err.message ?? 'No se pudo registrar al beneficiario.'
   } finally {
     enviando.value = false
   }
@@ -163,7 +196,8 @@ async function procesarExcel() {
       telefono: headers.findIndex(h => h.includes('telefono') || h.includes('tel')),
       edad: headers.findIndex(h => h.includes('edad')),
       familiares: headers.findIndex(h => h.includes('familiares') || h.includes('personas')),
-      es_representante: headers.findIndex(h => h.includes('representante')),
+      es_representante: headers.findIndex(h => h === 'es_representante' || h === 'representante' || h.includes('es_representante')),
+      documento_representante: headers.findIndex(h => h.includes('documento_representante') || h.includes('cedula_representante') || h.includes('doc_representante')),
       notas: headers.findIndex(h => h.includes('nota')),
     }
 
@@ -171,15 +205,29 @@ async function procesarExcel() {
     let errores = 0
     const detalles = []
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      const rowNum = i + 2 // +2 porque fila 1 es encabezado, fila 2 es primer dato
+    // Clasificar filas en dos pasadas: 1. Representantes, 2. Miembros
+    const filasClasificadas = rows.map((row, idx) => {
+      const rowNum = idx + 2
+      const esRepRaw = colMap.es_representante >= 0 ? String(row[colMap.es_representante] || '').trim().toLowerCase() : ''
+      const docRepRaw = colMap.documento_representante >= 0 ? String(row[colMap.documento_representante] || '').trim().toUpperCase() : ''
+      // Es representante si dice 'si', 'true', '1' o si no especifica rol ni tiene documento_representante asignado
+      const esRepresentante = (esRepRaw === 'no' || esRepRaw === 'false' || esRepRaw === '0' || (!esRepRaw && docRepRaw)) ? false : true
+      return { row, rowNum, esRepresentante, docRepRaw }
+    })
+
+    const filasOrdenadas = [
+      ...filasClasificadas.filter(item => item.esRepresentante),
+      ...filasClasificadas.filter(item => !item.esRepresentante)
+    ]
+
+    for (let i = 0; i < filasOrdenadas.length; i++) {
+      const item = filasOrdenadas[i]
+      const { row, rowNum, esRepresentante, docRepRaw } = item
 
       try {
         const nombre = colMap.nombre >= 0 ? String(row[colMap.nombre] || '').trim() : null
         const documento = colMap.documento >= 0 ? String(row[colMap.documento] || '').trim() : null
         const sexoRaw = colMap.sexo >= 0 ? String(row[colMap.sexo] || '').trim().toUpperCase() : null
-        // Normalizar sexo a M/F (acepta M/F o MASCULINO/FEMENINO)
         let sexo = null
         if (sexoRaw) {
           if (sexoRaw === 'M' || sexoRaw === 'MASCULINO') sexo = 'M'
@@ -188,14 +236,12 @@ async function procesarExcel() {
         const telefono = colMap.telefono >= 0 ? String(row[colMap.telefono] || '').trim() : null
         const edad = colMap.edad >= 0 ? Number(row[colMap.edad]) : null
         const familiares = colMap.familiares >= 0 ? Number(row[colMap.familiares]) : null
-        const esRepresentante = colMap.es_representante >= 0 ? String(row[colMap.es_representante] || '').trim().toLowerCase() === 'si' : false
         const notas = colMap.notas >= 0 ? String(row[colMap.notas] || '').trim() : null
 
         if (!nombre) {
           throw new Error('Nombre es requerido')
         }
 
-        // Validar documento si se proporciona
         if (documento) {
           const doc = documento.toUpperCase()
           if (!/^[VE]-?\d{6,8}$/.test(doc)) {
@@ -203,25 +249,29 @@ async function procesarExcel() {
           }
         }
 
+        if (!esRepresentante && !docRepRaw) {
+          throw new Error('Los miembros del grupo familiar deben incluir documento_representante (cédula del jefe de familia)')
+        }
+
         const datosDemograficos = {}
         if (edad) datosDemograficos.edad = edad
-        if (familiares) datosDemograficos.personas = familiares
+        if (esRepresentante && familiares) datosDemograficos.personas = familiares
         if (sexo) datosDemograficos.sexo = sexo
         if (telefono) datosDemograficos.telefono = telefono
         if (notas) datosDemograficos.notas = notas
-        if (esRepresentante) datosDemograficos.es_representante = true
 
         await catalog.crearBeneficiario({
           nombre: nombre || null,
           documento: documento || null,
           shelterId: Number(form.shelterId),
+          esRepresentante,
+          documentoRepresentante: !esRepresentante ? docRepRaw : null,
           datosDemograficos: Object.keys(datosDemograficos).length ? datosDemograficos : null,
         })
 
         exitosos++
       } catch (err) {
         errores++
-        // Capturar mensaje específico del backend si está disponible
         const errorMessage = err?.response?.data?.error || err.message || 'Error desconocido'
         detalles.push({
           fila: rowNum,
@@ -233,11 +283,11 @@ async function procesarExcel() {
     resultadoCarga.value = {
       exitosos,
       errores,
-      detalles: detalles.slice(0, 20), // Limitar a 20 errores para no saturar
+      detalles: detalles.slice(0, 20),
     }
 
-    // Limpiar archivo después de procesar
     archivoExcel.value = null
+    cargarRepresentantes()
   } catch (err) {
     errorCarga.value = err.message || 'Error al procesar el archivo Excel.'
   } finally {
@@ -274,7 +324,8 @@ async function procesarExcel() {
         <div class="rounded-lg border border-aid-gray-200 bg-aid-gray-50 p-4">
           <h3 class="mb-3 text-sm font-semibold text-aid-navy">Carga masiva desde Excel</h3>
           <p class="mb-3 text-xs text-aid-text-light">
-            Carga múltiples beneficiarios desde un archivo Excel (.xlsx, .xls). Columnas esperadas: nombre, documento, sexo, teléfono, edad, familiares, es_representante, notas.
+            Carga múltiples beneficiarios desde un archivo Excel (.xlsx, .xls). Columnas esperadas: nombre, documento, sexo, teléfono, edad, familiares, es_representante, documento_representante, notas.
+            <br /><span class="font-medium text-aid-teal">Nota:</span> Si <code>es_representante</code> es NO, la columna <code>documento_representante</code> es obligatoria con la cédula de su jefe de familia.
           </p>
           <div class="flex items-center gap-3">
             <input
@@ -321,11 +372,66 @@ async function procesarExcel() {
 
         <h3 class="text-sm font-semibold text-aid-navy">Registro individual</h3>
 
+        <!-- Selector de Rol -->
+        <div class="rounded-lg border border-aid-gray-200 bg-aid-gray-50 p-3.5">
+          <label class="mb-2 block text-xs font-semibold uppercase tracking-wider text-aid-navy">Rol en el Grupo Familiar</label>
+          <div class="flex flex-wrap gap-6 text-sm">
+            <label class="flex items-center gap-2 cursor-pointer font-medium text-aid-navy">
+              <input
+                type="radio"
+                v-model="form.esRepresentante"
+                value="si"
+                class="text-aid-teal focus:ring-aid-teal"
+              />
+              <span>Representante / Jefe de Familia</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer font-medium text-aid-navy">
+              <input
+                type="radio"
+                v-model="form.esRepresentante"
+                value="no"
+                class="text-aid-teal focus:ring-aid-teal"
+                @change="cargarRepresentantes()"
+              />
+              <span>Miembro / Dependiente</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Buscador de Representante cuando es miembro -->
+        <div v-if="form.esRepresentante === 'no'" class="rounded-lg border border-aid-teal/30 bg-aid-teal/5 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-aid-navy">
+              Vincular al Representante del Grupo
+            </label>
+            <BaseButton type="button" variant="outline" size="sm" @click="cargarRepresentantes()" :loading="buscandoRep">
+              Actualizar lista
+            </BaseButton>
+          </div>
+          <BaseSearchSelect
+            v-model="form.representanteId"
+            label="Representante / Jefe de Familia"
+            placeholder="Selecciona o escribe para buscar representante..."
+            :options="representantesEncontrados.map(r => ({
+              id: String(r.id),
+              label: `${r.nombre || 'Sin nombre'} (${r.documento || 'Sin doc'})`
+            }))"
+            value-key="id"
+            label-key="label"
+            :loading="buscandoRep"
+            @search="cargarRepresentantes"
+            required
+          />
+          <p class="text-xs text-aid-text-light">
+            Solo aparecen personas registradas como Representantes en este refugio. Si aún no está registrado, regístralo primero como Representante antes de agregar miembros.
+          </p>
+        </div>
+
         <div class="grid gap-5 sm:grid-cols-2">
           <BaseInput
             v-model="form.nombre"
-            label="Nombre del representante"
-            placeholder="Ej. Jefe de familia"
+            :label="form.esRepresentante === 'si' ? 'Nombre del representante' : 'Nombre del miembro'"
+            placeholder="Ej. Juan Pérez"
           />
 
           <BaseInput
@@ -369,6 +475,7 @@ async function procesarExcel() {
           />
 
           <BaseInput
+            v-if="form.esRepresentante === 'si'"
             v-model="form.personas"
             type="number"
             min="1"

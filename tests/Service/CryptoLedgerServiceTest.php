@@ -58,7 +58,9 @@ class CryptoLedgerServiceTest extends KernelTestCase
         /** @var InventoryEventRepository $repository */
         $repository = $this->em->getRepository(InventoryEvent::class);
 
-        $this->ledger = new CryptoLedgerService($this->em, $repository, $verifier);
+        $stockService = $this->createStub(\App\Service\ShelterStockService::class);
+
+        $this->ledger = new CryptoLedgerService($this->em, $repository, $verifier, $stockService);
 
         // Datos base compartidos.
         $this->shelter = (new Shelter())->setNombre('Refugio Zona A')->setZona('A');
@@ -69,6 +71,7 @@ class CryptoLedgerServiceTest extends KernelTestCase
 
         $this->coordinator = (new Coordinator())
             ->setNombre('Coordinador Prueba')
+            ->setDocumento('V-10000001')
             ->setRoles([CoordinatorRole::DESPACHADOR])
             ->setOrganization($this->organization)
             ->setPublicKey('-----BEGIN PUBLIC KEY-----\nFAKE-COORD\n-----END PUBLIC KEY-----');
@@ -166,6 +169,7 @@ class CryptoLedgerServiceTest extends KernelTestCase
 
         $encargado = (new Coordinator())
             ->setNombre('Encargado Refugio')
+            ->setDocumento('V-10000002')
             ->setRoles([CoordinatorRole::ENCARGADO_REFUGIO])
             ->setOrganization($this->organization)
             ->setPublicKey('-----BEGIN PUBLIC KEY-----\nFAKE-ENCARGADO\n-----END PUBLIC KEY-----');
@@ -190,6 +194,7 @@ class CryptoLedgerServiceTest extends KernelTestCase
 
         $encargado = (new Coordinator())
             ->setNombre('Encargado Refugio')
+            ->setDocumento('V-10000003')
             ->setRoles([CoordinatorRole::ENCARGADO_REFUGIO])
             ->setOrganization($this->organization)
             ->setPublicKey('-----BEGIN PUBLIC KEY-----\nFAKE-ENCARGADO\n-----END PUBLIC KEY-----');
@@ -206,6 +211,7 @@ class CryptoLedgerServiceTest extends KernelTestCase
         // el no repudio exige dos firmas de identidades distintas.
         $multi = (new Coordinator())
             ->setNombre('Coordinador Doble Rol')
+            ->setDocumento('V-10000004')
             ->setRoles([CoordinatorRole::DESPACHADOR, CoordinatorRole::ENCARGADO_REFUGIO])
             ->setOrganization($this->organization)
             ->setPublicKey('-----BEGIN PUBLIC KEY-----\nFAKE-MULTI\n-----END PUBLIC KEY-----');

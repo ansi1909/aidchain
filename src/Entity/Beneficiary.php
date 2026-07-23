@@ -47,6 +47,17 @@ class Beneficiary
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $datosDemograficos = null;
 
+    #[ORM\Column(type: 'boolean')]
+    private bool $esRepresentante = true;
+
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'miembrosGrupoFamiliar')]
+    #[ORM\JoinColumn(name: 'representante_id', nullable: true, onDelete: 'RESTRICT')]
+    private ?Beneficiary $representante = null;
+
+    /** @var Collection<int, Beneficiary> */
+    #[ORM\OneToMany(mappedBy: 'representante', targetEntity: self::class)]
+    private Collection $miembrosGrupoFamiliar;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
@@ -58,6 +69,7 @@ class Beneficiary
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->inventoryEvents = new ArrayCollection();
+        $this->miembrosGrupoFamiliar = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -134,5 +146,56 @@ class Beneficiary
     public function getInventoryEvents(): Collection
     {
         return $this->inventoryEvents;
+    }
+
+    public function isEsRepresentante(): bool
+    {
+        return $this->esRepresentante;
+    }
+
+    public function setEsRepresentante(bool $esRepresentante): static
+    {
+        $this->esRepresentante = $esRepresentante;
+
+        return $this;
+    }
+
+    public function getRepresentante(): ?self
+    {
+        return $this->representante;
+    }
+
+    public function setRepresentante(?self $representante): static
+    {
+        $this->representante = $representante;
+
+        return $this;
+    }
+
+    /** @return Collection<int, self> */
+    public function getMiembrosGrupoFamiliar(): Collection
+    {
+        return $this->miembrosGrupoFamiliar;
+    }
+
+    public function addMiembroGrupoFamiliar(self $miembro): static
+    {
+        if (!$this->miembrosGrupoFamiliar->contains($miembro)) {
+            $this->miembrosGrupoFamiliar->add($miembro);
+            $miembro->setRepresentante($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMiembroGrupoFamiliar(self $miembro): static
+    {
+        if ($this->miembrosGrupoFamiliar->removeElement($miembro)) {
+            if ($miembro->getRepresentante() === $this) {
+                $miembro->setRepresentante(null);
+            }
+        }
+
+        return $this;
     }
 }

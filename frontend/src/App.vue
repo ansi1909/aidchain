@@ -11,8 +11,14 @@ const route = useRoute()
 const router = useRouter()
 
 const sidebarOpen = ref(false)
+const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === 'true')
 const userMenuOpen = ref(false)
 const refugiosMenuOpen = ref(false)
+
+function toggleSidebarCollapse() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  localStorage.setItem('sidebar_collapsed', String(sidebarCollapsed.value))
+}
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
@@ -86,53 +92,70 @@ onMounted(async () => {
 
     <!-- Menú lateral vertical -->
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-aid-gray-100 bg-white transition-transform lg:translate-x-0"
-      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+      class="fixed inset-y-0 left-0 z-40 flex flex-col border-r border-aid-gray-100 bg-white transition-all duration-300"
+      :class="[
+        sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0',
+        sidebarCollapsed ? 'w-64 lg:w-20' : 'w-64'
+      ]"
     >
       <!-- Marca -->
-      <RouterLink to="/" class="flex items-center gap-2 border-b border-aid-gray-100 px-5 py-4" @click="sidebarOpen = false">
-        <img :src="logoUrl" alt="AidChain" class="h-9 w-auto" />
-        <div class="flex flex-col">
+      <RouterLink
+        to="/"
+        class="flex items-center border-b border-aid-gray-100 py-4 transition-all"
+        :class="sidebarCollapsed ? 'justify-center px-2' : 'gap-2.5 px-5'"
+        @click="sidebarOpen = false"
+      >
+        <img :src="logoUrl" alt="AidChain" class="h-9 w-auto shrink-0 transition-transform hover:scale-105" />
+        <div v-if="!sidebarCollapsed" class="flex flex-col overflow-hidden">
           <span class="text-sm font-bold leading-tight tracking-tight text-aid-navy">
             AID<span class="text-aid-teal">CHAIN</span>
           </span>
-          <span class="text-[10px] font-medium uppercase tracking-wider text-aid-gray">
+          <span class="text-[10px] font-medium uppercase tracking-wider text-aid-gray truncate">
             Trazabilidad humanitaria
           </span>
         </div>
       </RouterLink>
 
       <!-- Navegación -->
-      <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav class="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
         <RouterLink
           v-for="item in nav"
           :key="item.to"
           :to="item.to"
-          class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-          :class="route.path === item.to ? 'bg-aid-teal-50 text-aid-teal' : ''"
+          :title="sidebarCollapsed ? item.label : undefined"
+          class="group flex items-center rounded-lg py-2.5 text-sm font-medium text-aid-text-light transition-all hover:bg-aid-teal-50 hover:text-aid-teal"
+          :class="[
+            route.path === item.to ? 'bg-aid-teal-50 text-aid-teal font-semibold' : '',
+            sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
+          ]"
           @click="sidebarOpen = false"
         >
           <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
           </svg>
-          <span>{{ item.label }}</span>
+          <span v-if="!sidebarCollapsed" class="truncate">{{ item.label }}</span>
         </RouterLink>
 
         <!-- Grupo Refugios (admin y encargado de refugio) -->
         <div v-if="puedeVerRefugios" class="space-y-1">
           <button
             type="button"
-            class="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-            :class="refugiosMenuOpen ? 'bg-aid-teal-50 text-aid-teal' : ''"
-            @click="refugiosMenuOpen = !refugiosMenuOpen"
+            :title="sidebarCollapsed ? 'Refugios (abrir menú)' : undefined"
+            class="flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-aid-text-light transition-all hover:bg-aid-teal-50 hover:text-aid-teal"
+            :class="[
+              refugiosMenuOpen ? 'bg-aid-teal-50 text-aid-teal' : '',
+              sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'
+            ]"
+            @click="if (sidebarCollapsed) { sidebarCollapsed = false; localStorage.setItem('sidebar_collapsed', 'false'); refugiosMenuOpen = true; } else { refugiosMenuOpen = !refugiosMenuOpen; }"
           >
-            <div class="flex items-center gap-3">
+            <div class="flex items-center" :class="sidebarCollapsed ? 'justify-center' : 'gap-3'">
               <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              <span>Refugios</span>
+              <span v-if="!sidebarCollapsed" class="truncate">Refugios</span>
             </div>
             <svg
+              v-if="!sidebarCollapsed"
               class="h-4 w-4 shrink-0 transition-transform"
               :class="refugiosMenuOpen ? 'rotate-180' : ''"
               fill="none"
@@ -144,11 +167,11 @@ onMounted(async () => {
             </svg>
           </button>
 
-          <div v-if="refugiosMenuOpen" class="ml-8 space-y-1">
+          <div v-if="refugiosMenuOpen && !sidebarCollapsed" class="ml-8 space-y-1 animate-fade-in-up">
             <RouterLink
               to="/refugios"
               class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-              :class="route.path === '/refugios' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              :class="route.path === '/refugios' ? 'bg-aid-teal-50 text-aid-teal font-medium' : ''"
               @click="sidebarOpen = false"
             >
               Gestión de refugios
@@ -156,7 +179,7 @@ onMounted(async () => {
             <RouterLink
               to="/censo"
               class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-              :class="route.path === '/censo' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              :class="route.path === '/censo' ? 'bg-aid-teal-50 text-aid-teal font-medium' : ''"
               @click="sidebarOpen = false"
             >
               Censo
@@ -164,7 +187,7 @@ onMounted(async () => {
             <RouterLink
               to="/necesidades"
               class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-              :class="route.path === '/necesidades' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              :class="route.path === '/necesidades' ? 'bg-aid-teal-50 text-aid-teal font-medium' : ''"
               @click="sidebarOpen = false"
             >
               Necesidades
@@ -172,7 +195,7 @@ onMounted(async () => {
             <RouterLink
               to="/inventario"
               class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-              :class="route.path === '/inventario' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              :class="route.path === '/inventario' ? 'bg-aid-teal-50 text-aid-teal font-medium' : ''"
               @click="sidebarOpen = false"
             >
               Inventario
@@ -180,7 +203,7 @@ onMounted(async () => {
             <RouterLink
               to="/entrega"
               class="block rounded-lg px-3 py-2 text-sm text-aid-text-light transition-colors hover:bg-aid-teal-50 hover:text-aid-teal"
-              :class="route.path === '/entrega' ? 'bg-aid-teal-50 text-aid-teal' : ''"
+              :class="route.path === '/entrega' ? 'bg-aid-teal-50 text-aid-teal font-medium' : ''"
               @click="sidebarOpen = false"
             >
               Padrón
@@ -189,22 +212,71 @@ onMounted(async () => {
         </div>
       </nav>
 
-      <div class="border-t border-aid-gray-100 px-4 py-3 text-[11px] text-aid-text-muted">
+      <!-- Botón colapsar/expandir en parte inferior del sidebar (sólo desktop) -->
+      <div class="hidden border-t border-aid-gray-100 p-2.5 lg:block">
+        <button
+          type="button"
+          class="flex w-full items-center rounded-lg py-2 text-xs font-semibold text-aid-text-light transition-colors hover:bg-aid-gray-100 hover:text-aid-navy"
+          :class="sidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'"
+          @click="toggleSidebarCollapse"
+          :title="sidebarCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'"
+        >
+          <svg
+            class="h-5 w-5 shrink-0 transition-transform"
+            :class="sidebarCollapsed ? 'rotate-180 text-aid-teal' : 'text-aid-text-muted'"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+          <span v-if="!sidebarCollapsed" class="truncate">Colapsar menú</span>
+        </button>
+      </div>
+
+      <div
+        class="border-t border-aid-gray-100 px-4 py-3 text-[11px] text-aid-text-muted transition-all"
+        :class="sidebarCollapsed ? 'hidden' : 'block'"
+      >
         Ledger criptográfico humanitario
       </div>
     </aside>
 
     <!-- Contenido principal -->
-    <div class="flex min-h-screen flex-1 flex-col lg:pl-64">
+    <div
+      class="flex min-h-screen flex-1 flex-col transition-all duration-300"
+      :class="sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'"
+    >
       <!-- Barra superior -->
       <header class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-aid-gray-100 bg-white/95 px-4 py-2.5 backdrop-blur-sm">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <!-- Botón hamburguesa móvil -->
           <button
             type="button"
             class="rounded-lg p-2 text-aid-text hover:bg-aid-gray-100 lg:hidden"
             @click="sidebarOpen = true"
+            title="Abrir menú"
           >
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <!-- Botón colapsar/expandir en cabecera desktop -->
+          <button
+            type="button"
+            class="hidden rounded-lg p-2 text-aid-text hover:bg-aid-gray-100 lg:flex items-center justify-center transition-colors"
+            @click="toggleSidebarCollapse"
+            :title="sidebarCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'"
+          >
+            <svg
+              class="h-5 w-5 text-aid-text-muted hover:text-aid-teal transition-transform"
+              :class="sidebarCollapsed ? 'rotate-180' : ''"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>

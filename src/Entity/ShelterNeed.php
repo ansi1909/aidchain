@@ -33,6 +33,9 @@ class ShelterNeed
     #[ORM\Column(type: 'decimal', precision: 12, scale: 3)]
     private string $cantidadRequerida;
 
+    #[ORM\Column(type: 'string', length: 50, options: ['default' => 'unidades'])]
+    private string $unidad = 'unidades';
+
     #[ORM\Column(type: 'decimal', precision: 12, scale: 3)]
     private string $cantidadRecibida = '0';
 
@@ -93,6 +96,17 @@ class ShelterNeed
     {
         $this->cantidadRequerida = $cantidadRequerida;
         $this->recalcularEstado();
+        return $this;
+    }
+
+    public function getUnidad(): string
+    {
+        return $this->unidad;
+    }
+
+    public function setUnidad(string $unidad): static
+    {
+        $this->unidad = $unidad;
         return $this;
     }
 
